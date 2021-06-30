@@ -92,6 +92,8 @@ def init_weights(m):
 
 def main():
 
+    os.makedirs(args.outf+'/samples')
+
     write_info_file()
     parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu
