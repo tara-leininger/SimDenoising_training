@@ -92,6 +92,8 @@ def init_weights(m):
 
 def main():
 
+    os.makedirs(args.outf+'/samples')
+
     write_info_file()
     parser.write_config(args, args.outf + "/config_out.py")
     # choose cpu or gpu
@@ -172,7 +174,7 @@ def main():
         model.eval()
         torch.save(model.state_dict(), os.path.join(args.outf, 'net.pth'))
         #make_sample_images(model)
-    plot loss/epoch for training and validation sets
+    #plot loss/epoch for training and validation sets
     training = plt.plot(training_losses, label='training')
     validation = plt.plot(validation_losses, label='validation')
     plt.legend()
