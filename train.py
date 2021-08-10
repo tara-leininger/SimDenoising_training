@@ -71,33 +71,22 @@ def make_sample_images(fuzzy_root, sharp_root, model, transform='none'):
     branch_arrays = RootBasic(fuzzy_root, sharp_root, transform)
     dataset = RootDataset(fuzzy_root, sharp_root, transform)
     model.to('cpu')
-    random.seed(args.randomseed)
+    random.seed(args.randomseed) #makes random orientations match those from training
     for event in range(10):
-        flipx, flipy, rot = get_flips()
-        sharp, fuzzy = branch_arrays[event]
         sharp_norm, fuzzy_norm = dataset[event]
-        np.savetxt(args.outf+'/samples/sharp' + str(event) + '.txt', sharp)
-        np.savetxt(args.outf+'/samples/fuzzy' + str(event) + '.txt', fuzzy)
         fuzzy_eval = fuzzy_norm.unsqueeze(0).unsqueeze(1)
         output = model(fuzzy_eval.float()).squeeze(0).squeeze(0).cpu().detach().numpy()
         output_un = dataset.unnormalize(output)
         np.savetxt(args.outf+'/samples/output' + str(event) + '.txt', output_un)
+    random.seed(args.randomseed)
+    for event in range(10):
+        sharp, fuzzy = branch_arrays[event]
+        np.savetxt(args.outf+'/samples/sharp' + str(event) + '.txt', sharp)
+        np.savetxt(args.outf+'/samples/fuzzy' + str(event) + '.txt', fuzzy)
     model.to('cuda')
 
-#gets data needed to make histograms of sample data
-#assumes that the xmin, xmax, ymin, and ymax values are the same 
-#for all four high and low quality training and validation files
-file = up.open(args.valfileSharp)
-tree = file["g4SimHits/tree"]
-x_min = tree["xmin"].array().to_numpy()[0]
-x_max = tree["xmax"].array().to_numpy()[0]
-y_min = tree["ymin"].array().to_numpy()[0]
-y_max = tree["ymax"].array().to_numpy()[0]
-x_bins = tree["xbins"].array().to_numpy()[0]
-y_bins = tree["ybins"].array().to_numpy()[0]
-
 #makes histograms given bin weights listed in .txt file    
-def make_plots(fin):
+def make_plots(fin, x_min, x_max, x_bins, y_min, y_max, y_bins):
     binweights = np.loadtxt(fin)
     binarray = []
     for i, elem in enumerate(binweights):
@@ -108,18 +97,18 @@ def make_plots(fin):
     x_axis = []
     count = 0
     x_start = x_min
-    while count < 100:
-        for i in range(100):
+    while count < y_bins:
+        for i in range(x_bins):
             x = x_start + ((x_max-x_min)/x_bins)*float(i)
             x_axis.append(x)
         count = count + 1
 
     y_axis = []
     y_start = y_min
-    for i in range(100):
+    for i in range(y_bins):
         y = y_start + ((y_max-y_min)/y_bins)*float(i)
         count = 0
-        while count < 100:
+        while count < x_bins:
             y_axis.append(y)
             count = count + 1
             
@@ -160,6 +149,13 @@ def main():
     loader_train = DataLoader(dataset=dataset_train, batch_size=args.batchSize, num_workers=args.num_workers, shuffle=True)
     dataset_val = RootDataset(sharp_root=args.valfileSharp, fuzzy_root=args.valfileFuzz, transform=args.transform)
     loader_val = DataLoader(dataset=dataset_val, batch_size=args.batchSize, num_workers=args.num_workers)
+    
+    x_bins = dataset_train.x_bins
+    y_bins = dataset_train.y_bins
+    x_min = dataset_train.x_min
+    x_max = dataset_train.x_max
+    y_min = dataset_train.y_min
+    y_max = dataset_train.y_max
 
     # Build model
     model = DnCNN(channels=1, num_of_layers=args.num_layers, kernel_size=args.kernelSize, features=args.features).to(device=args.device)
@@ -246,7 +242,7 @@ def main():
     #makes histograms of sample data
     os.makedirs(args.outf+'/plots')
     for fin in os.listdir(args.outf+'/samples'):
-        make_plots(args.outf+'/samples/'+fin)
+        make_plots(args.outf+'/samples/'+fin, x_min, x_max, x_bins, y_min, y_max, y_bins)
     
     
 

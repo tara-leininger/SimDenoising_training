@@ -14,12 +14,12 @@ def get_flips():
     return flipx, flipy, rot
     
 
-def get_bin_weights(branch, n, flipx = None, flipy=None, rot=None):
-    data = np.zeros((100,100))
+def get_bin_weights(branch, n, x_bins, y_bins, flipx = None, flipy=None, rot=None):
+    data = np.zeros((x_bins,y_bins))
     count = 0
-    for y in range(100):
-        for x in range(100):
-            data[99-x][y]=branch[n][count]
+    for y in range(y_bins):
+        for x in range(x_bins):
+            data[(x_bins-1)-x][y]=branch[n][count]
             #if (data[99-x][y] != 0):
                 #data[99-x][y] = math.log10(data[99-x][y])
             count+=1
@@ -63,6 +63,13 @@ class RootBasic(udata.Dataset):
         self.fuzzy_branch = get_branch(fuzzy_root)
         self.sharp_tree = get_tree(self.sharp_root)
         self.fuzzy_tree = get_tree(self.fuzzy_root)
+        #assumes bin configuration is the same for all files
+        self.x_bins = self.sharp_tree["xbins"].array().to_numpy()[0]
+        self.y_bins = self.sharp_tree["ybins"].array().to_numpy()[0]
+        self.x_min = self.sharp_tree["xmin"].array().to_numpy()[0]
+        self.y_min = self.sharp_tree["ymin"].array().to_numpy()[0]
+        self.x_max = self.sharp_tree["xmax"].array().to_numpy()[0]
+        self.y_max = self.sharp_tree["ymax"].array().to_numpy()[0]
         self.transform = transform
         self.means = None
         self.stdevs = None
@@ -77,8 +84,10 @@ class RootBasic(udata.Dataset):
             
     def __getitem__(self, idx):
         flipx, flipy, rot = get_flips()
-        sharp_np = get_bin_weights(self.sharp_branch, idx, flipx, flipy, rot).copy()
-        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, flipx, flipy, rot).copy()
+        x_bins = self.x_bins
+        y_bins = self.y_bins
+        sharp_np = get_bin_weights(self.sharp_branch, idx, x_bins, y_bins, flipx, flipy, rot).copy()
+        fuzzy_np = get_bin_weights(self.fuzzy_branch, idx, x_bins, y_bins, flipx, flipy, rot).copy()
         return sharp_np, fuzzy_np
     
     #can only be called after __getitem__ has run in RootDataset
@@ -89,6 +98,8 @@ class RootBasic(udata.Dataset):
 
 class RootDataset(RootBasic):
     def __getitem__(self, idx):
+        x_bins = self.x_bins
+        y_bins = self.y_bins
         sharp_np, fuzzy_np = super().__getitem__(idx)
                     
         if self.transform=="log10":
@@ -104,7 +115,8 @@ class RootDataset(RootBasic):
         
         sharp = torch.from_numpy(sharp_np)
         fuzzy = torch.from_numpy(fuzzy_np)
-        return sharp, fuzzy 
+        return sharp, fuzzy
+        
         
 if __name__=="__main__":
     dataset = RootDataset("test.root", 1)
